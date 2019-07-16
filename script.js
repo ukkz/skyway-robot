@@ -47,6 +47,8 @@ window.onload = ()=> {
             if (robots.length === 0) {
                 $('#robot_panel').append('<button class="btn btn-outline-danger" disabled>No robots connected</button>');
             }
+            // リロードボタン
+            $('#robot_panel').append('<button class="btn btn-outline-info" onclick="javascript:location.reload();">Reload</button>');
         });
     });
     peer.on('error', (err) => alert(err.message));

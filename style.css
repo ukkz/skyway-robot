@@ -1,5 +1,7 @@
-body {
-    background: rgb(190, 190, 190);
+.container-fluid {
+    height: 100vh;
+    color: aliceblue;
+    background: rgb(40, 40, 40);
 }
 
 .controller {
