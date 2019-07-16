@@ -1,3 +1,7 @@
+body {
+    background: rgb(190, 190, 190);
+}
+
 .controller {
     font-size:1rem;
     height:20vw;

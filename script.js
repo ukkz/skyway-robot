@@ -67,12 +67,13 @@ window.onload = ()=> {
         mediaConnection.on('stream', (stream) => {
             document.getElementById("remote_video").srcObject = stream;
             $('#robot_panel').empty();
-            // リロードボタン設置
-            $('#robot_panel').append('<button class="btn btn-outline-info" onclick="javascript:location.reload();">Reload Browser</button>');
-            // 切断ボタン設置
-            $('#robot_panel').append('<button class="btn btn-outline-secondary disconnect">Disconnect from '+robot_id+'</button>');
+            $('#robot_panel').html('<h2>'+robot_id+'</h2>')
+            // リロードボタン
+            $('#robot_panel').append('<button class="btn btn-outline-info" onclick="javascript:location.reload();">Disconnect</button>');
+            // 再起動ボタン
+            $('#robot_panel').append('<button class="btn btn-outline-warning" id="reboot">Reboot</button>');
             // シャットダウンボタン設置
-            $('#robot_panel').append('<button class="btn btn-outline-danger shutdown">Shutdown</button>');
+            $('#robot_panel').append('<button class="btn btn-outline-danger" id="shutdown">Shutdown</button>');
         });
 
         // MediaStream切断
@@ -86,27 +87,33 @@ window.onload = ()=> {
             { serialization: "none" }
         );
 
+        // DataStream切断
+        dataConnection.on('close', () => {
+            location.reload();
+        });
+
         // データが送られてきたらコンソールに表示
         dataConnection.on('data', (data) => {
             console.log(data)
         });
 
-        // 切断ボタン
-        $(document).on('click', '.disconnect', () => {
-            $('.disconnect').text('Disconnected');
+        // 再起動ボタン
+        $(document).on('click', '#reboot', () => {
+            dataConnection.send('#reboot');
+            $('#robot_panel').empty();
+            $('#robot_panel').append('<button class="btn btn-outline-warning" disabled>Sent reboot command.</button>');
             setTimeout(() => {
                 location.reload();
-            }, 3000);
+            }, 1000);
         });
 
         // シャットダウンボタン
-        $(document).on('click', '.shutdown', () => {
+        $(document).on('click', '#shutdown', () => {
             dataConnection.send('#shutdown');
             $('#robot_panel').empty();
-            $('#robot_panel').append('<button class="btn btn-outline-danger" disabled>Shutdown command sent.</button>');
+            $('#robot_panel').append('<button class="btn btn-outline-danger" disabled>Sent shutdown command.</button>');
             setTimeout(() => {
-                dataConnection.close(true);
-                mediaConnection.close(true);
+                location.reload();
             }, 1000);
         });
 
