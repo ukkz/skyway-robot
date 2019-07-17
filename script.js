@@ -1,6 +1,7 @@
 'use strict';
 
 const CONTROLLER_PREFIX = 'controller-';
+const SPEED_STEP = 5;
 
 // Get Parametersを取得する
 function getQueryParams() {
@@ -23,11 +24,22 @@ function getQueryParams() {
 window.onload = ()=> {
     const query = getQueryParams();
     const key = query["apikey"];
-    const my_peer_id = CONTROLLER_PREFIX + Math.floor(Math.random()*10000).toString().padStart(4,'0')
+    const my_peer_id = CONTROLLER_PREFIX + Math.floor(Math.random()*10000).toString().padStart(4,'0');
     const peer = new Peer(my_peer_id, {
         key: key,
-        debug: 2
+        debug: 3
     });
+    // 同じスピードの場合は記録しておき
+    // 重複してコマンドが送られないようにする
+    let last_speed_L = 0;
+    let last_speed_R = 0;
+
+    // LeapMotion定義
+    const leapController = new Leap.Controller({
+        enableGestures: true,
+        frameEventName: 'animationFrame'
+    });
+    let hand_in = false; // 手を検出しているかしていないかのフラグ
 
     // ここではシグナリングサーバへの接続で発火
     peer.on('open', (my_peer_id) => {
@@ -57,6 +69,9 @@ window.onload = ()=> {
     $(document).on('click', '.connect_to_robot', (b) => {
         b.preventDefault();
         const robot_id = $(b.currentTarget).val();
+
+        // オーバーレイの数値などを表示（最初は非表示）
+        $('#joypad').removeClass('d-none');
 
         // MediaConnection
         const mediaConnection = peer.call(
@@ -99,9 +114,32 @@ window.onload = ()=> {
             console.log(data)
         });
 
+        // ラジコン制御コマンド：スピード
+        const robotSpeed = (left, right) => {
+            left  = Math.round(left/SPEED_STEP)*SPEED_STEP;
+            right = Math.round(right/SPEED_STEP)*SPEED_STEP;
+            if (left != last_speed_L || right != last_speed_R) {
+                dataConnection.send(left + '/' + right);
+                console.log('L:', left, 'R:', right);
+                $('#display_speed').text((left+right)/10);
+                $('#display_rotation').text(270*(left-right)/200);
+            }
+            last_speed_L = left;
+            last_speed_R = right;
+        }
+        // ラジコン制御コマンド：固定値
+        const robotCommand = (command) => {
+            if (command === 'go') robotSpeed(50, 50);
+            else if (command === 'left') robotSpeed(0, 50);
+            else if (command === 'back') robotSpeed(-50, -50);
+            else if (command === 'right') robotSpeed(50, 0);
+            else if (command === 'stop') robotSpeed(0, 0);
+            else dataConnection.send(command);
+        }
+
         // 再起動ボタン
         $(document).on('click', '#reboot', () => {
-            dataConnection.send('#reboot');
+            robotCommand('#reboot');
             $('#robot_panel').empty();
             $('#robot_panel').append('<button class="btn btn-outline-warning" disabled>Sent reboot command.</button>');
             setTimeout(() => {
@@ -111,7 +149,7 @@ window.onload = ()=> {
 
         // シャットダウンボタン
         $(document).on('click', '#shutdown', () => {
-            dataConnection.send('#shutdown');
+            robotCommand('#shutdown');
             $('#robot_panel').empty();
             $('#robot_panel').append('<button class="btn btn-outline-danger" disabled>Sent shutdown command.</button>');
             setTimeout(() => {
@@ -124,20 +162,19 @@ window.onload = ()=> {
             e.preventDefault();
             const command = $(e.currentTarget).val();
             console.log('Command:', command);
-            dataConnection.send(command);
+            robotCommand(command);
         });
 
         // キーボードによる操作
         $(document).keydown(() => {
             const keyCode = event.keyCode;
-            if (keyCode == '87') dataConnection.send('#go');    // W
-            //if (keyCode == '87') dataConnection.send('100/100');    // W
-            if (keyCode == '65') dataConnection.send('#left');  // A
-            if (keyCode == '83') dataConnection.send('#back');  // S
-            if (keyCode == '68') dataConnection.send('#right'); // D
+            if (keyCode == '87') robotCommand('go');    // W
+            if (keyCode == '65') robotCommand('left');  // A
+            if (keyCode == '83') robotCommand('back');  // S
+            if (keyCode == '68') robotCommand('right'); // D
         });
         $(document).keyup(() => {
-            dataConnection.send('#stop');
+            robotCommand('stop');
         });
 
         // 画面ジョイスティック
@@ -145,29 +182,48 @@ window.onload = ()=> {
             zone: document.getElementById('joypad'),
             catchDistance: 100,
             size: 150,
-            color: 'orange',
+            color: 'yellow',
             mode: 'semi'
         });
-
-        nipple.on('added', (evt, joystick) => {
-            let stepL = 0, stepR = 0;
-            joystick.on('move', (evt) => {
-                const X = Math.round(joystick.frontPosition.x/5)*5;
-                const Y = -1 * Math.round(joystick.frontPosition.y/5)*5;
-                const motorL = X + Y;
-                const motorR = Y - X;
-                if (motorL != stepL || motorR != stepR) {
-                    console.log('L:', motorL, 'R:', motorR);
-                    stepL = motorL;
-                    stepR = motorR;
-                    dataConnection.send(stepL+'/'+stepR);
-                }
+        nipple.on('added', (e, joystick) => {
+            joystick.on('move', () => {
+                const X = joystick.frontPosition.x;
+                const Y = -1 * joystick.frontPosition.y;
+                robotSpeed(X + Y, Y - X);
             });
             joystick.on('end', () => {
-                // ストップ
-                console.log('STOP');
-                dataConnection.send('#stop');
+                robotCommand('stop'); // ストップ
             });
         });
+
+        // LeapMotion反応したとき
+        leapController.on('frame', (frame) => {
+            // 認識されたHandオブジェクト
+            // 複数認識できるが最初の一つだけにしておく（index=0）
+            // 以下は1つ以上手を検出したときのみ
+            if (frame.hands.length > 0) {
+                if (!hand_in) {
+                    // 手を未検出->検出中の瞬間のみ
+                    $('#display_leapmotion').text('Detect');
+                }
+                hand_in = true;
+                const hand = frame.hands[0];
+                const ahead = -100 * hand.pitch();
+                let L = ahead, R = ahead;
+                const roll = hand.roll();
+                if (roll > 0) L = L * (1 - roll);
+                if (roll < 0) R = R * (1 + roll);
+                robotSpeed(L, R);
+            } else {
+                if (hand_in) {
+                    // 手を検出中->未検出の瞬間のみ
+                    robotCommand('stop');
+                    $('#display_leapmotion').text('None');
+                }
+                hand_in = false;
+            }
+            //gestureCountDisplay.innerText = frame.gestures.length;    
+        });
+        leapController.connect();
     });
 };
