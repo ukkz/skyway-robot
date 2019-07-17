@@ -106,7 +106,7 @@ window.onload = ()=> {
             $('#robot_panel').append('<button class="btn btn-outline-warning" disabled>Sent reboot command.</button>');
             setTimeout(() => {
                 location.reload();
-            }, 1000);
+            }, 2000);
         });
 
         // シャットダウンボタン
@@ -116,7 +116,7 @@ window.onload = ()=> {
             $('#robot_panel').append('<button class="btn btn-outline-danger" disabled>Sent shutdown command.</button>');
             setTimeout(() => {
                 location.reload();
-            }, 1000);
+            }, 2000);
         });
 
         // ボタンによる操作
