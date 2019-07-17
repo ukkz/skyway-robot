@@ -143,8 +143,8 @@ window.onload = ()=> {
         // 画面ジョイスティック
         const nipple = nipplejs.create({
             zone: document.getElementById('joypad'),
-            catchDistance: 150,
-            size: 200,
+            catchDistance: 100,
+            size: 150,
             color: 'orange',
             mode: 'semi'
         });
