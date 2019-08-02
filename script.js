@@ -77,7 +77,10 @@ window.onload = ()=> {
         const mediaConnection = peer.call(
             robot_id, // 接続先
             null,     // 映像受信専用としてストリームを開く
-            { videoReceiveEnabled: true }
+            {
+                videoReceiveEnabled: true,
+                videoBandwidth: 512
+            }
         );
 
         // MediaStreamを受信、ビデオオブジェクトに反映
@@ -130,9 +133,9 @@ window.onload = ()=> {
         // ラジコン制御コマンド：固定値
         const robotCommand = (command) => {
             if (command === 'go') robotSpeed(50, 50);
-            else if (command === 'left') robotSpeed(0, 50);
+            else if (command === 'left') robotSpeed(-25, 25);
             else if (command === 'back') robotSpeed(-50, -50);
-            else if (command === 'right') robotSpeed(50, 0);
+            else if (command === 'right') robotSpeed(25, -25);
             else if (command === 'stop') robotSpeed(0, 0);
             else dataConnection.send(command);
         }
@@ -168,26 +171,35 @@ window.onload = ()=> {
         // キーボードによる操作
         $(document).keydown(() => {
             const keyCode = event.keyCode;
+            console.log(keyCode);
             if (keyCode == '87') robotCommand('go');    // W
             if (keyCode == '65') robotCommand('left');  // A
             if (keyCode == '83') robotCommand('back');  // S
             if (keyCode == '68') robotCommand('right'); // D
+            if (keyCode == '38') robotCommand('go');    // Arrow-Up
+            if (keyCode == '37') robotCommand('left');  // Arrow-Left
+            if (keyCode == '40') robotCommand('back');  // Arrow-Down
+            if (keyCode == '39') robotCommand('right'); // Arrow-Right
         });
         $(document).keyup(() => {
             robotCommand('stop');
         });
 
+        // ジョイスティック & LeapMotion
+        // 回転しすぎを防ぐための係数
+        const roll_coef = 0.5;
+
         // 画面ジョイスティック
         const nipple = nipplejs.create({
             zone: document.getElementById('joypad'),
-            catchDistance: 100,
+            catchDistance: 50,
             size: 150,
             color: 'yellow',
             mode: 'semi'
         });
         nipple.on('added', (e, joystick) => {
             joystick.on('move', () => {
-                const X = joystick.frontPosition.x;
+                const X = joystick.frontPosition.x * roll_coef;
                 const Y = -1 * joystick.frontPosition.y;
                 robotSpeed(X + Y, Y - X);
             });
@@ -211,8 +223,8 @@ window.onload = ()=> {
                 const ahead = -100 * hand.pitch();
                 let L = ahead, R = ahead;
                 const roll = hand.roll();
-                if (roll > 0) L = L * (1 - roll);
-                if (roll < 0) R = R * (1 + roll);
+                if (roll > 0) L = L * (1 - (roll*roll_coef));
+                if (roll < 0) R = R * (1 + (roll*roll_coef));
                 robotSpeed(L, R);
             } else {
                 if (hand_in) {
