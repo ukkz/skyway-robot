@@ -117,13 +117,19 @@ window.onload = ()=> {
             console.log(data)
         });
 
+        // dataconnectionで定期的にpingを打つ
+        // 受け取るロボット側はpingが途絶えて一定時間経つと強制的にモータ停止する（暴走防止）
+        const ping = setInterval(() => {
+            dataConnection.send('!');
+        }, 100); // 100msおきに送る
+
         // ラジコン制御コマンド：スピード
         const robotSpeed = (left, right) => {
             left  = Math.round(left/SPEED_STEP)*SPEED_STEP;
             right = Math.round(right/SPEED_STEP)*SPEED_STEP;
             if (left != last_speed_L || right != last_speed_R) {
                 dataConnection.send(left + '/' + right);
-                console.log('L:', left, 'R:', right);
+                console.log('Left:', left, '/ Right:', right);
                 $('#display_speed').text((left+right)/10);
                 $('#display_rotation').text(270*(left-right)/200);
             }
@@ -143,12 +149,11 @@ window.onload = ()=> {
 
         // リロードボタン
         $(document).on('click', '#reload', () => {
-            // ちゃんとコネクションを切断
-            mediaConnection.close();
-            dataConnection.close();
             $('#robot_panel').empty();
             $('#robot_panel').append('<button class="btn btn-outline-info" disabled>Disconnecting...</button>');
-            // close() で自動リロードされる
+            // コネクションを切断するとon-closeで自動的にリロードされる
+            mediaConnection.close();
+            dataConnection.close();
         });
 
         // 再起動ボタン
@@ -182,7 +187,6 @@ window.onload = ()=> {
         // キーボードによる操作
         $(document).keydown(() => {
             const keyCode = event.keyCode;
-            console.log(keyCode);
             if (keyCode == '87') robotCommand('go');    // W
             if (keyCode == '65') robotCommand('left');  // A
             if (keyCode == '83') robotCommand('back');  // S
