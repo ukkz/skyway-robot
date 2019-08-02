@@ -89,14 +89,14 @@ window.onload = ()=> {
             $('#robot_panel').empty();
             $('#robot_panel').html('<h2>'+robot_id+'</h2>')
             // リロードボタン
-            $('#robot_panel').append('<button class="btn btn-outline-info" onclick="javascript:location.reload();">Disconnect</button>');
+            $('#robot_panel').append('<button class="btn btn-outline-info" id="reload">Disconnect</button>');
             // 再起動ボタン
             $('#robot_panel').append('<button class="btn btn-outline-warning" id="reboot">Reboot</button>');
-            // シャットダウンボタン設置
+            // シャットダウンボタン
             $('#robot_panel').append('<button class="btn btn-outline-danger" id="shutdown">Shutdown</button>');
         });
 
-        // MediaStream切断
+        // MediaStream切断されたらリロード
         mediaConnection.on('close', () => {
             location.reload();
         });
@@ -107,7 +107,7 @@ window.onload = ()=> {
             { serialization: "none" }
         );
 
-        // DataStream切断
+        // DataStream切断されたらリロード
         dataConnection.on('close', () => {
             location.reload();
         });
@@ -130,6 +130,7 @@ window.onload = ()=> {
             last_speed_L = left;
             last_speed_R = right;
         }
+
         // ラジコン制御コマンド：固定値
         const robotCommand = (command) => {
             if (command === 'go') robotSpeed(50, 50);
@@ -139,6 +140,16 @@ window.onload = ()=> {
             else if (command === 'stop') robotSpeed(0, 0);
             else dataConnection.send(command);
         }
+
+        // リロードボタン
+        $(document).on('click', '#reload', () => {
+            // ちゃんとコネクションを切断
+            mediaConnection.close();
+            dataConnection.close();
+            $('#robot_panel').empty();
+            $('#robot_panel').append('<button class="btn btn-outline-info" disabled>Disconnecting...</button>');
+            // close() で自動リロードされる
+        });
 
         // 再起動ボタン
         $(document).on('click', '#reboot', () => {
@@ -187,7 +198,8 @@ window.onload = ()=> {
 
         // ジョイスティック & LeapMotion
         // 回転しすぎを防ぐための係数
-        const roll_coef = 0.5;
+        const joy_roll_coef = 0.2;
+        const leap_roll_coef = 0.5;
 
         // 画面ジョイスティック
         const nipple = nipplejs.create({
@@ -199,7 +211,7 @@ window.onload = ()=> {
         });
         nipple.on('added', (e, joystick) => {
             joystick.on('move', () => {
-                const X = joystick.frontPosition.x * roll_coef;
+                const X = joystick.frontPosition.x * joy_roll_coef;
                 const Y = -1 * joystick.frontPosition.y;
                 robotSpeed(X + Y, Y - X);
             });
@@ -223,8 +235,8 @@ window.onload = ()=> {
                 const ahead = -100 * hand.pitch();
                 let L = ahead, R = ahead;
                 const roll = hand.roll();
-                if (roll > 0) L = L * (1 - (roll*roll_coef));
-                if (roll < 0) R = R * (1 + (roll*roll_coef));
+                if (roll > 0) L = L * (1 - (roll * leap_roll_coef));
+                if (roll < 0) R = R * (1 + (roll * leap_roll_coef));
                 robotSpeed(L, R);
             } else {
                 if (hand_in) {

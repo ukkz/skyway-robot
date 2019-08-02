@@ -6,6 +6,7 @@ body {
     height: 100vh;
     color: aliceblue;
     background: rgb(40, 40, 40);
+    overflow: hidden;
 }
 
 .controller {
