@@ -119,9 +119,9 @@ window.onload = ()=> {
 
         // dataconnectionで定期的にpingを打つ
         // 受け取るロボット側はpingが途絶えて一定時間経つと強制的にモータ停止する（暴走防止）
-        const ping = setInterval(() => {
-            dataConnection.send('!');
-        }, 100); // 100msおきに送る
+        //const ping = setInterval(() => {
+        //    dataConnection.send('!');
+        //}, 100); // 100msおきに送る
 
         // ラジコン制御コマンド：スピード
         const robotSpeed = (left, right) => {
